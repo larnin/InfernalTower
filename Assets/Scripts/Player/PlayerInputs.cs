@@ -46,7 +46,7 @@ public class PlayerInputs : MonoBehaviour
             {
                 m_direction = e.ReadValue<Vector2>();
             }
-            else if(e.phase == InputActionPhase.Disabled)
+            else if(e.phase == InputActionPhase.Disabled || e.phase == InputActionPhase.Canceled)
             {
                 m_direction = Vector2.zero;
             }
@@ -56,12 +56,12 @@ public class PlayerInputs : MonoBehaviour
             if(e.phase == InputActionPhase.Started)
             {
                 m_jump = true;
-                Event<StartJumpEvent>.Broadcast(new StartJumpEvent(), gameObject);
+                Event<StartJumpEvent>.Broadcast(new StartJumpEvent(), gameObject, true);
             }
             else if(e.phase == InputActionPhase.Canceled)
             {
                 m_jump = false;
-                Event<EndJumpEvent>.Broadcast(new EndJumpEvent(), gameObject);
+                Event<EndJumpEvent>.Broadcast(new EndJumpEvent(), gameObject, true);
             }
         }
     }

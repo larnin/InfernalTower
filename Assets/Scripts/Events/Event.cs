@@ -82,10 +82,17 @@ class Event<T>
             m_events[obj] -= func;
     }
 
-    public static void Broadcast(T data, GameObject obj)
+    public static void Broadcast(T data, GameObject obj, bool propagateToChild = false)
     {
         Action<T> func;
         if (m_events.TryGetValue(obj, out func) && func != null)
             func(data);
+
+        if(propagateToChild)
+        {
+            var t = obj.transform;
+            for(int i = 0; i < t.childCount; i++)
+                Broadcast(data, t.GetChild(i).gameObject, true);
+        }
     }
 }
