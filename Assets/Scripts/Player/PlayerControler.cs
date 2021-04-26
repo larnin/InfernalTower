@@ -17,6 +17,10 @@ public class PlayerControler : MonoBehaviour
     [SerializeField] float m_jumpBufferTimeBeforeLand = 0.2f;
     [SerializeField] float m_jumpBufferTimerAfterLand = 0.2f;
     [SerializeField] float m_jumpApexSpeed = 1;
+    //bump on wall and ceil
+    [SerializeField] float m_bumpHeadCorrection = 0.5f;
+    [SerializeField] float m_bumpWallCorrection = 0.5f;
+    [SerializeField] LayerMask m_bumpMask;
 
     Rigidbody2D m_rigidbody = null;
     BoxCollider2D m_collider = null;
@@ -32,6 +36,8 @@ public class PlayerControler : MonoBehaviour
 
     float m_jumpPressedTime = -1;
     float m_jumpTime = -1;
+
+    Vector2 m_oldVelocity;
 
     private void Start()
     {
@@ -67,6 +73,8 @@ public class PlayerControler : MonoBehaviour
         UpdateFallSpeed();
 
         UpdateJump();
+
+        m_oldVelocity = m_rigidbody.velocity;
     }
 
     void UpdateGrounded()
@@ -105,9 +113,6 @@ public class PlayerControler : MonoBehaviour
             }
             m_grounded = m_parent != null;
         }
-
-        if (transform.parent != m_parent)
-            transform.SetParent(m_parent);
 
         m_outGroundTIme += Time.deltaTime;
         if (m_grounded)
@@ -198,5 +203,67 @@ public class PlayerControler : MonoBehaviour
     void OnJump(StartJumpEvent e)
     {
         m_jumpPressedTime = 0;
+    }
+
+    void OnCollisionEnter2D(Collision2D collision)
+    {
+        const float checkSize = 0.02f;
+
+        Vector2 size = m_collider.size;
+        Vector2 offset = m_collider.offset;
+        Vector2 pos = m_collider.transform.position;
+        float rot = m_collider.transform.rotation.eulerAngles.z;
+        float radRot = Mathf.Deg2Rad * rot;
+        
+        pos.x += Mathf.Cos(rot) * offset.x + Mathf.Sin(rot) * offset.y;
+        pos.y += Mathf.Sin(rot) * offset.x + Mathf.Cos(rot) * offset.y;
+        pos += m_oldVelocity * Time.deltaTime;
+
+        if (Physics2D.OverlapBox(pos, size, rot, m_bumpMask) == null)
+            return;
+        
+        //nearly vertical jump
+        if (m_oldVelocity.y > 0 && m_oldVelocity.y > Mathf.Abs(m_oldVelocity.x * 3))
+        {
+            var contact = collision.contacts[0];
+            if (Mathf.Abs(contact.normal.y) < Mathf.Abs(contact.normal.x) * 3)
+                return;
+
+            int nbTest = Mathf.CeilToInt(m_bumpHeadCorrection / checkSize);
+            for(int i = 0; i < nbTest * 2; i++)
+            {
+                int index = i / 2;
+                int direction = i % 2 == 0 ? 1 : -1;
+                Vector2 testOffset = new Vector2(index * checkSize * direction, 0);
+                var testPos = pos + testOffset;
+                if(Physics2D.OverlapBox(testPos, size, rot, m_bumpMask) == null)
+                {
+                    transform.position = transform.position + new Vector3(testOffset.x, testOffset.y, 0);
+                    m_rigidbody.velocity = m_oldVelocity;
+                    return;
+                }
+            }
+        }
+
+        //nearly horizontal
+        if(m_oldVelocity.y <= 0 && Mathf.Abs(m_oldVelocity.x) > Mathf.Abs(m_oldVelocity.y * 2))
+        {
+            var contact = collision.contacts[0];
+            if (Mathf.Abs(contact.normal.x) < Mathf.Abs(contact.normal.y) * 2)
+                return;
+
+            int nbTest = Mathf.CeilToInt(m_bumpWallCorrection / checkSize);
+            for(int i = 0; i < nbTest; i++)
+            {
+                Vector2 testOffset = new Vector2(0, i * checkSize);
+                var testPos = pos + testOffset;
+                if(Physics2D.OverlapBox(testPos, size, rot, m_bumpMask) == null)
+                {
+                    transform.position = transform.position + new Vector3(testOffset.x, testOffset.y, 0);
+                    m_rigidbody.velocity = m_oldVelocity;
+                    return;
+                }
+            }
+        }
     }
 }
