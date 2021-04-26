@@ -31,11 +31,12 @@ public class PlayerControler : MonoBehaviour
     bool m_jumping;
 
     bool m_grounded = false;
-    float m_outGroundTIme = -1;
+    float m_outGroundTime = -1;
     Transform m_parent = null;
 
     float m_jumpPressedTime = -1;
     float m_jumpTime = -1;
+    int m_jumpCount = 0;
 
     Vector2 m_oldVelocity;
 
@@ -114,9 +115,9 @@ public class PlayerControler : MonoBehaviour
             m_grounded = m_parent != null;
         }
 
-        m_outGroundTIme += Time.deltaTime;
+        m_outGroundTime += Time.deltaTime;
         if (m_grounded)
-            m_outGroundTIme = 0;
+            m_outGroundTime = 0;
     }
 
     void UpdateSpeed()
@@ -158,19 +159,33 @@ public class PlayerControler : MonoBehaviour
 
     void UpdateJump()
     {
+        if (m_jumpPressedTime == -1 && m_grounded)
+            m_jumpCount = 0;
+
         if(!m_jumping)
         {
             m_jumpPressedTime = -1;
             m_jumpTime = -1;
         }
 
-        bool canJump = m_outGroundTIme < m_jumpBufferTimerAfterLand;
+        bool canJump = m_outGroundTime < m_jumpBufferTimerAfterLand;
         bool jumpPressed = m_jumpPressedTime >= 0 && m_jumpPressedTime < m_jumpBufferTimeBeforeLand && m_jumping;
 
         bool applyVelocity = false;
+        
+        if ((canJump && jumpPressed && m_jumpTime < 0) //first jump on ground
+            || (jumpPressed && m_jumpTime < 0)) //air jump
+        {
+            m_jumpPressedTime = -1;
 
-        if (canJump && jumpPressed && m_jumpTime < 0)
-            applyVelocity = true; //start jump
+            CanJumpEvent jumpEvent = new CanJumpEvent(m_jumpCount + 1);
+            Event<CanJumpEvent>.Broadcast(jumpEvent, gameObject, true);
+            if (jumpEvent.allowed)
+            {
+                m_jumpCount++;
+                applyVelocity = true; //start jump
+            }
+        }
         if (m_jumpTime >= 0 && m_jumpTime < m_maxJumpDuration)
             applyVelocity = true; // longJump
 
@@ -179,6 +194,7 @@ public class PlayerControler : MonoBehaviour
             Vector2 velocity = m_rigidbody.velocity;
             velocity.y = m_jumpSpeed;
             m_rigidbody.velocity = velocity;
+            m_outGroundTime = m_jumpBufferTimerAfterLand + 1;
         }
 
         if (m_jumpPressedTime >= 0)
