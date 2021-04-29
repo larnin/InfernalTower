@@ -8,6 +8,8 @@ using UnityEngine;
 class StartJumpEvent { }
 class EndJumpEvent { }
 
+class StartDashEvent { }
+
 class GetDirectionEvent
 {
     public Vector2 direction;
@@ -16,4 +18,9 @@ class GetDirectionEvent
 class GetJumpEvent
 {
     public bool jump;
+}
+
+class GetDashEvent
+{
+    public bool dash;
 }

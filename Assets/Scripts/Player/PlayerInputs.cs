@@ -7,6 +7,7 @@ public class PlayerInputs : MonoBehaviour
     const string InputsName = "Player";
     const string MoveName = "Move";
     const string JumpName = "Jump";
+    const string DashName = "Dash";
 
     PlayerInput m_inputs;
 
@@ -14,11 +15,13 @@ public class PlayerInputs : MonoBehaviour
 
     Vector2 m_direction = Vector2.zero;
     bool m_jump = false;
+    bool m_dash = false;
     
     void Start()
     {
         m_subscriberList.Add(new Event<GetDirectionEvent>.LocalSubscriber(GetDirection, gameObject));
         m_subscriberList.Add(new Event<GetJumpEvent>.LocalSubscriber(GetJump, gameObject));
+        m_subscriberList.Add(new Event<GetDashEvent>.LocalSubscriber(GetDash, gameObject));
         m_subscriberList.Subscribe();
 
         m_inputs = GetComponent<PlayerInput>();
@@ -64,6 +67,18 @@ public class PlayerInputs : MonoBehaviour
                 Event<EndJumpEvent>.Broadcast(new EndJumpEvent(), gameObject, true);
             }
         }
+        else if(e.action.name == DashName)
+        {
+            if (e.phase == InputActionPhase.Started)
+            {
+                m_dash = true;
+                Event<StartDashEvent>.Broadcast(new StartDashEvent(), gameObject, true);
+            }
+            else if (e.phase == InputActionPhase.Canceled)
+            {
+                m_dash = false;
+            }
+        }
     }
 
     void GetDirection(GetDirectionEvent e)
@@ -74,5 +89,10 @@ public class PlayerInputs : MonoBehaviour
     void GetJump(GetJumpEvent e)
     {
         e.jump = m_jump;
+    }
+
+    void GetDash(GetDashEvent e)
+    {
+        e.dash = m_dash;
     }
 }

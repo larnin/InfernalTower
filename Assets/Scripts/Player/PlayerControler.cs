@@ -21,6 +21,12 @@ public class PlayerControler : MonoBehaviour
     [SerializeField] float m_bumpHeadCorrection = 0.5f;
     [SerializeField] float m_bumpWallCorrection = 0.5f;
     [SerializeField] LayerMask m_bumpMask;
+    //wall jump
+    [SerializeField] float m_wallCheckDistance = 0.2f;
+    [SerializeField] float m_wallExitDuration = 0.2f;
+    [SerializeField] float m_wallFallSpeed = 1;
+    [SerializeField] float m_maxWallDuration = 10;
+    [SerializeField] LayerMask m_wallSlideMask;
 
     Rigidbody2D m_rigidbody = null;
     BoxCollider2D m_collider = null;
@@ -33,6 +39,11 @@ public class PlayerControler : MonoBehaviour
     bool m_grounded = false;
     float m_outGroundTime = -1;
     Transform m_parent = null;
+
+    bool m_onWall = false;
+    bool m_wallRight = false;
+    float m_onWallTime = -1;
+    float m_outWallTime = -1;
 
     float m_jumpPressedTime = -1;
     float m_jumpTime = -1;
@@ -68,6 +79,7 @@ public class PlayerControler : MonoBehaviour
         m_jumping = jump.jump;
 
         UpdateGrounded();
+        UpdateOnWall();
 
         UpdateSpeed();
 
@@ -80,17 +92,12 @@ public class PlayerControler : MonoBehaviour
 
     void UpdateGrounded()
     {
-        Vector2 size = m_collider.size;
-        Vector2 offset = m_collider.offset;
-        Vector2 pos = m_collider.transform.position;
-        float rot = m_collider.transform.rotation.eulerAngles.z;
-        float radRot = Mathf.Deg2Rad * rot;
+        Vector2 pos, size;
+        float rot;
+        GetBoxSizeAndRot(out pos, out size, out rot);
+        Vector2 dir = new Vector2(0, -1);
 
-        pos.y -= m_groundCheckDistance;
-        pos.x += Mathf.Cos(rot) * offset.x + Mathf.Sin(rot) * offset.y;
-        pos.y += Mathf.Sin(rot) * offset.x + Mathf.Cos(rot) * offset.y;
-
-        var collisions = Physics2D.OverlapBoxAll(pos, size, rot, m_groundMask);
+        var collisions = Physics2D.BoxCastAll(pos, size, rot, dir, m_groundCheckDistance, m_groundMask);
 
         if(collisions.Length == 0)
         {
@@ -105,6 +112,8 @@ public class PlayerControler : MonoBehaviour
             {
                 if (c.transform == transform)
                     continue;
+                if (c.normal.y < 0 || c.normal.y < Mathf.Abs(c.normal.x) * 3)
+                    continue;//not enoght vertical
                 if(c.transform == oldParent)
                 {
                     m_parent = oldParent;
@@ -118,6 +127,81 @@ public class PlayerControler : MonoBehaviour
         m_outGroundTime += Time.deltaTime;
         if (m_grounded)
             m_outGroundTime = 0;
+    }
+
+    void UpdateOnWall()
+    {
+        if(m_grounded)
+        {
+            m_onWall = false;
+            m_onWallTime = -1;
+            m_outWallTime = -1;
+            return;
+        }
+
+        Vector2 pos, size;
+        float rot;
+        GetBoxSizeAndRot(out pos, out size, out rot);
+
+        Vector2[] testDir = new Vector2[] {pos + new Vector2(m_wallCheckDistance, 0), pos - new Vector2(m_wallCheckDistance, 0)};
+
+        bool wasOnWall = m_onWall;
+        m_onWall = false;
+
+        for(int i = 0; i < testDir.Length; i++)
+        {
+            int wasOnWallIndex = m_wallRight ? 0 : 1;
+            if (wasOnWall && i != wasOnWallIndex)
+                continue;
+            
+            var dir = testDir[i] / m_wallCheckDistance;
+
+            var collisions = Physics2D.BoxCastAll(pos, size, rot, dir, m_wallCheckDistance, m_groundMask);
+
+            var slideCollisions = Physics2D.BoxCastAll(pos, size, rot, dir, m_wallCheckDistance, m_wallSlideMask);
+
+            if (collisions.Length == 0)
+                continue;
+
+            bool onWall = false;
+            foreach(var c in collisions)
+            {
+                if (c.transform == transform)
+                    continue;
+                if (Mathf.Abs(c.normal.x) < Mathf.Abs(c.normal.y) * 3)
+                    continue;//not enoght vertical
+                onWall = true;
+                break;
+            }
+
+            if (onWall)
+            {
+                foreach (var c in slideCollisions)
+                {
+                    if (c.transform == transform)
+                        continue;
+                    if (Mathf.Abs(c.normal.x) < Mathf.Abs(c.normal.y) * 3)
+                        continue;//not enoght vertical
+                    onWall = false;
+                    break;
+                }
+            }
+
+            if(onWall)
+            {
+                m_onWall = true;
+                m_wallRight = i == 0;
+                break;
+            }
+        }
+        
+        if(!m_onWall)
+            m_outWallTime += Time.deltaTime;
+        else
+        {
+            m_onWallTime += Time.deltaTime;
+            m_outWallTime = 0;
+        }
     }
 
     void UpdateSpeed()
@@ -225,14 +309,9 @@ public class PlayerControler : MonoBehaviour
     {
         const float checkSize = 0.02f;
 
-        Vector2 size = m_collider.size;
-        Vector2 offset = m_collider.offset;
-        Vector2 pos = m_collider.transform.position;
-        float rot = m_collider.transform.rotation.eulerAngles.z;
-        float radRot = Mathf.Deg2Rad * rot;
-        
-        pos.x += Mathf.Cos(rot) * offset.x + Mathf.Sin(rot) * offset.y;
-        pos.y += Mathf.Sin(rot) * offset.x + Mathf.Cos(rot) * offset.y;
+        Vector2 pos, size;
+        float rot;
+        GetBoxSizeAndRot(out pos, out size, out rot);
         pos += m_oldVelocity * Time.deltaTime;
 
         if (Physics2D.OverlapBox(pos, size, rot, m_bumpMask) == null)
@@ -281,5 +360,21 @@ public class PlayerControler : MonoBehaviour
                 }
             }
         }
+    }
+
+    void GetBoxSizeAndRot(out Vector2 outPos, out Vector2 outSize, out float outRot)
+    {
+        Vector2 size = m_collider.size;
+        Vector2 offset = m_collider.offset;
+        Vector2 pos = m_collider.transform.position;
+        float rot = m_collider.transform.rotation.eulerAngles.z;
+        float radRot = Mathf.Deg2Rad * rot;
+
+        pos.x += Mathf.Cos(radRot) * offset.x + Mathf.Sin(radRot) * offset.y;
+        pos.y += Mathf.Sin(radRot) * offset.x + Mathf.Cos(radRot) * offset.y;
+
+        outPos = pos;
+        outSize = size;
+        outRot = rot;
     }
 }
