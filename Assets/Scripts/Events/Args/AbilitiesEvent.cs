@@ -43,29 +43,3 @@ class CanDashEvent
         allowed = dashIndex == 1;
     }
 }
-
-class ModifySpeedEvent
-{
-    float m_initialSpeed;
-    public float initialSpeed { get { return m_initialSpeed; } }
-    public float modifiedSpeed;
-
-    public ModifySpeedEvent(float speed)
-    {
-        m_initialSpeed = speed;
-        modifiedSpeed = speed;
-    }
-}
-
-class ModifyAccelerationEvent
-{
-    float m_initialAcceleration;
-    public float initialAcceleration { get { return m_initialAcceleration; } }
-    public float modifiedAcceleration;
-
-    public ModifyAccelerationEvent(float acceleration)
-    {
-        m_initialAcceleration = acceleration;
-        modifiedAcceleration = acceleration;
-    }
-}

@@ -26,6 +26,9 @@ public class PlayerControler : MonoBehaviour
     [SerializeField] float m_wallFallSpeed = 1;
     [SerializeField] float m_maxWallDuration = 10;
     [SerializeField] LayerMask m_wallSlideMask;
+    //dash
+    [SerializeField] float m_dashSpeed = 20;
+    [SerializeField] float m_dashDuration = 0.5f;
 
     Rigidbody2D m_rigidbody = null;
     BoxCollider2D m_collider = null;
@@ -50,7 +53,13 @@ public class PlayerControler : MonoBehaviour
     int m_wallJumpCount = 0;
     Vector2 m_jumpDirection = Vector2.zero;
 
+    float m_dashPressedTime = -1;
+    float m_dashingTime = -1;
+    int m_dashCount = 0;
+    Vector2 m_dashDirection = Vector2.zero;
+
     Vector2 m_oldVelocity;
+    Vector2 m_oldPosition;
 
     private void Start()
     {
@@ -61,6 +70,7 @@ public class PlayerControler : MonoBehaviour
             m_collider = GetComponentInChildren<BoxCollider2D>();
 
         m_subscriberList.Add(new Event<StartJumpEvent>.LocalSubscriber(OnJump, gameObject));
+        m_subscriberList.Add(new Event<StartDashEvent>.LocalSubscriber(OnDash, gameObject));
         m_subscriberList.Subscribe();
     }
 
@@ -82,13 +92,18 @@ public class PlayerControler : MonoBehaviour
         UpdateGrounded();
         UpdateOnWall();
 
+        UpdateOnWallFall();
+
         UpdateSpeed();
 
         UpdateFallSpeed();
 
         UpdateJump();
 
+        UpdateDash();
+
         m_oldVelocity = m_rigidbody.velocity;
+        m_oldPosition = transform.position;
     }
 
     void UpdateGrounded()
@@ -208,6 +223,34 @@ public class PlayerControler : MonoBehaviour
         }
     }
 
+    void UpdateOnWallFall()
+    {
+        if (!m_onWall)
+            return;
+
+        //don't stick on wall on dash or jump
+        if (m_dashingTime > 0 || m_jumpTime > 0)
+            return;
+
+        if(m_onWallTime < m_maxWallDuration)
+        {
+            var velocity = m_rigidbody.velocity;
+            if (velocity.y < 0)
+                velocity.y = 0;
+            m_rigidbody.velocity = velocity;
+            var position = transform.position;
+            position.y = m_oldPosition.y;
+            transform.position = position;
+        }
+        else
+        {
+            var velocity = m_rigidbody.velocity;
+            if (velocity.y < -m_wallFallSpeed)
+                velocity.y = -m_wallFallSpeed;
+            m_rigidbody.velocity = velocity;
+        }
+    }
+
     void UpdateSpeed()
     {
         float speed = m_rigidbody.velocity.x;
@@ -260,7 +303,7 @@ public class PlayerControler : MonoBehaviour
         }
 
         bool canJump = m_outGroundTime < m_jumpBufferTimerAfterLand;
-        bool jumpPressed = m_jumpPressedTime >= 0 && m_jumpPressedTime < m_jumpBufferTimeBeforeLand && m_jumping;
+        bool jumpPressed = m_jumpPressedTime >= 0 && m_jumpPressedTime < m_jumpBufferTimeBeforeLand && m_jumping && m_dashingTime < 0;
 
         bool canWallJump = m_outWallTime >= 0 && m_outWallTime < m_jumpBufferTimerAfterLand;
 
@@ -326,6 +369,51 @@ public class PlayerControler : MonoBehaviour
             m_jumpTime = -1;
     }
 
+    void UpdateDash()
+    {
+        if (m_grounded && m_dashingTime < 0)
+            m_dashCount = 0;
+
+        if (m_dashingTime >= 0)
+            m_dashingTime += Time.deltaTime;
+
+        if(m_dashPressedTime >= 0)
+        {
+            m_dashPressedTime = -1;
+
+            CanDashEvent dashEvent = new CanDashEvent(m_dashCount + 1);
+            Event<CanDashEvent>.Broadcast(dashEvent, gameObject, true);
+
+            if (!dashEvent.allowed)
+                return;
+
+            m_dashingTime = 0;
+            m_dashDirection = m_direction.normalized * m_dashSpeed;
+            m_dashCount++;
+        }
+
+        if(m_dashingTime <= m_dashDuration && m_dashingTime >= 0)
+            m_rigidbody.velocity = m_dashDirection;
+
+        if(m_dashingTime >= m_dashDuration)
+        {
+            m_dashingTime = -1;
+
+            var velocity = m_rigidbody.velocity;
+
+            if(velocity.x < -m_maxSpeed)
+                velocity.x = -m_maxSpeed;
+            if (velocity.x > m_maxSpeed)
+                velocity.x = m_maxSpeed;
+            if (velocity.y > 0)
+                velocity.y = 0;
+            if (velocity.y < -m_maxSpeed)
+                velocity.y = -m_maxSpeed;
+
+            m_rigidbody.velocity = velocity;
+        }
+    }
+
     float GetAcceleration()
     {
         if (m_grounded)
@@ -340,6 +428,11 @@ public class PlayerControler : MonoBehaviour
     void OnJump(StartJumpEvent e)
     {
         m_jumpPressedTime = 0;
+    }
+
+    void OnDash(StartDashEvent e)
+    {
+        m_dashPressedTime = 0;
     }
 
     void OnCollisionEnter2D(Collision2D collision)
