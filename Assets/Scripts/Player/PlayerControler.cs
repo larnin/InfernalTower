@@ -23,7 +23,6 @@ public class PlayerControler : MonoBehaviour
     [SerializeField] LayerMask m_bumpMask;
     //wall jump
     [SerializeField] float m_wallCheckDistance = 0.2f;
-    [SerializeField] float m_wallExitDuration = 0.2f;
     [SerializeField] float m_wallFallSpeed = 1;
     [SerializeField] float m_maxWallDuration = 10;
     [SerializeField] LayerMask m_wallSlideMask;
@@ -48,6 +47,8 @@ public class PlayerControler : MonoBehaviour
     float m_jumpPressedTime = -1;
     float m_jumpTime = -1;
     int m_jumpCount = 0;
+    int m_wallJumpCount = 0;
+    Vector2 m_jumpDirection = Vector2.zero;
 
     Vector2 m_oldVelocity;
 
@@ -196,7 +197,10 @@ public class PlayerControler : MonoBehaviour
         }
         
         if(!m_onWall)
-            m_outWallTime += Time.deltaTime;
+        {
+            if(m_outWallTime >= 0)
+                m_outWallTime += Time.deltaTime;
+        }
         else
         {
             m_onWallTime += Time.deltaTime;
@@ -244,7 +248,10 @@ public class PlayerControler : MonoBehaviour
     void UpdateJump()
     {
         if (m_jumpPressedTime == -1 && m_grounded)
+        {
             m_jumpCount = 0;
+            m_wallJumpCount = 0;
+        }
 
         if(!m_jumping)
         {
@@ -255,10 +262,12 @@ public class PlayerControler : MonoBehaviour
         bool canJump = m_outGroundTime < m_jumpBufferTimerAfterLand;
         bool jumpPressed = m_jumpPressedTime >= 0 && m_jumpPressedTime < m_jumpBufferTimeBeforeLand && m_jumping;
 
+        bool canWallJump = m_outWallTime >= 0 && m_outWallTime < m_jumpBufferTimerAfterLand;
+
         bool applyVelocity = false;
         
         if ((canJump && jumpPressed && m_jumpTime < 0) //first jump on ground
-            || (jumpPressed && m_jumpTime < 0)) //air jump
+            || (jumpPressed && m_jumpTime < 0 && !canWallJump)) //air jump
         {
             m_jumpPressedTime = -1;
 
@@ -268,6 +277,28 @@ public class PlayerControler : MonoBehaviour
             {
                 m_jumpCount++;
                 applyVelocity = true; //start jump
+                m_jumpDirection = Vector2.up * m_jumpSpeed;
+            }
+        }
+        if(canWallJump && jumpPressed && m_jumpTime < 0) //wall jump
+        {
+            m_jumpPressedTime = -1;
+            CanJumpEvent jumpEvent = new CanJumpEvent(m_wallJumpCount + 1, true);
+            Event<CanJumpEvent>.Broadcast(jumpEvent, gameObject, true);
+            if(jumpEvent.allowed)
+            {
+                m_wallJumpCount++;
+                applyVelocity = true;
+                bool jumpUp = m_direction.y > 0.1f && m_direction.y > Mathf.Abs(m_direction.x * 3);
+                if(jumpUp)
+                    m_jumpDirection = Vector2.up * m_jumpSpeed;
+                else
+                {
+                    //diagonal jump
+                    float speedDir = m_jumpSpeed / Mathf.Sqrt(2);
+                    m_jumpDirection = new Vector2(m_wallRight ? -speedDir : speedDir, speedDir);
+                }
+
             }
         }
         if (m_jumpTime >= 0 && m_jumpTime < m_maxJumpDuration)
@@ -276,9 +307,15 @@ public class PlayerControler : MonoBehaviour
         if(applyVelocity)
         {
             Vector2 velocity = m_rigidbody.velocity;
-            velocity.y = m_jumpSpeed;
+            if (velocity.y < m_jumpDirection.y)
+                velocity.y = m_jumpDirection.y;
+            if(m_jumpDirection.x < 0 && velocity.x > m_jumpDirection.x)
+                velocity.x = m_jumpDirection.x;
+            if (m_jumpDirection.x > 0 && velocity.x < m_jumpDirection.x)
+                velocity.x = m_jumpDirection.x;
             m_rigidbody.velocity = velocity;
             m_outGroundTime = m_jumpBufferTimerAfterLand + 1;
+            m_outWallTime = m_jumpBufferTimerAfterLand + 1;
         }
 
         if (m_jumpPressedTime >= 0)
