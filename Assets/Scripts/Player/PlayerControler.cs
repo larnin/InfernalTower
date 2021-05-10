@@ -29,6 +29,8 @@ public class PlayerControler : MonoBehaviour
     //dash
     [SerializeField] float m_dashSpeed = 20;
     [SerializeField] float m_dashDuration = 0.5f;
+    //others
+    [SerializeField] int m_cameraPriority = 10;
 
     Rigidbody2D m_rigidbody = null;
     BoxCollider2D m_collider = null;
@@ -61,7 +63,7 @@ public class PlayerControler : MonoBehaviour
     Vector2 m_oldVelocity;
     Vector2 m_oldPosition;
 
-    private void Start()
+    private void Awake()
     {
         m_rigidbody = GetComponent<Rigidbody2D>();
 
@@ -72,6 +74,11 @@ public class PlayerControler : MonoBehaviour
         m_subscriberList.Add(new Event<StartJumpEvent>.LocalSubscriber(OnJump, gameObject));
         m_subscriberList.Add(new Event<StartDashEvent>.LocalSubscriber(OnDash, gameObject));
         m_subscriberList.Subscribe();
+    }
+
+    private void Start()
+    {
+        Event<InstantMoveCameraEvent>.Broadcast(new InstantMoveCameraEvent(transform.position, m_cameraPriority));
     }
 
     private void OnDestroy()
@@ -104,6 +111,8 @@ public class PlayerControler : MonoBehaviour
 
         m_oldVelocity = m_rigidbody.velocity;
         m_oldPosition = transform.position;
+
+        Event<MoveCameraEvent>.Broadcast(new MoveCameraEvent(transform.position, m_cameraPriority));
     }
 
     void UpdateGrounded()
