@@ -38,3 +38,15 @@ class SetLockAreaCameraEvent
         collider = _collider;
     }
 }
+
+class AddScreenShakeEvent
+{
+    public ScreenShakeBase screenShake;
+
+    public AddScreenShakeEvent(ScreenShakeBase _screenShake)
+    {
+        screenShake = _screenShake;
+    }
+}
+
+class StopScreenShakeEvent { }
