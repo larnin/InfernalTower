@@ -8,6 +8,9 @@ public class PlayerInputs : MonoBehaviour
     const string MoveName = "Move";
     const string JumpName = "Jump";
     const string DashName = "Dash";
+    const string AttackName = "Attack";
+    const string TargetMouseName = "TargetMouse";
+    const string TargetGamepadName = "TargetGamepad";
 
     PlayerInput m_inputs;
 
@@ -42,6 +45,17 @@ public class PlayerInputs : MonoBehaviour
             return;
         if (e.action.actionMap.name != InputsName)
             return;
+
+        string deviceClass = e.control.device.description.deviceClass;
+        InputType type = Settings.instance.inputType;
+
+        if (deviceClass == "Mouse" || deviceClass == "Keyboard")
+        {
+            if (type != InputType.Keyboard)
+                Settings.instance.inputType = InputType.Keyboard;
+        }
+        else if (type != InputType.Gamepad)
+            Settings.instance.inputType = InputType.Gamepad;
 
         if(e.action.name == MoveName)
         {

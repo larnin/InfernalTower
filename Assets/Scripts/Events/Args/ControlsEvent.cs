@@ -10,6 +10,9 @@ class EndJumpEvent { }
 
 class StartDashEvent { }
 
+class StartAttackEvent { }
+class EndAttackEvent { }
+
 class GetDirectionEvent
 {
     public Vector2 direction;
@@ -23,4 +26,14 @@ class GetJumpEvent
 class GetDashEvent
 {
     public bool dash;
+}
+
+class GetAttackEvent
+{
+    public bool Attack;
+}
+
+class GetAttackDirection
+{
+
 }
