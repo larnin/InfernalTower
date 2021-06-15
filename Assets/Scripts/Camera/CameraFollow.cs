@@ -33,6 +33,9 @@ public class CameraFollow : MonoBehaviour
         m_subscriberList.Add(new Event<MoveCameraEvent>.Subscriber(OnMove));
         m_subscriberList.Add(new Event<InstantMoveCameraEvent>.Subscriber(OnInstantMove));
         m_subscriberList.Add(new Event<SetLockAreaCameraEvent>.Subscriber(OnLockCamera));
+        m_subscriberList.Add(new Event<GetCameraEvent>.Subscriber(GetCamera));
+        m_subscriberList.Add(new Event<GetCameraObjectEvent>.Subscriber(GetCameraObject));
+        m_subscriberList.Add(new Event<GetCameraPositionEvent>.Subscriber(GetCameraPosition));
         m_subscriberList.Subscribe();
 
         m_currentPosition = transform.position;
@@ -177,5 +180,20 @@ public class CameraFollow : MonoBehaviour
     void OnLockCamera(SetLockAreaCameraEvent e)
     {
         m_lockArea = e.collider;
+    }
+
+    void GetCamera(GetCameraEvent e)
+    {
+        e.camera = m_camera;
+    }
+
+    void GetCameraObject(GetCameraObjectEvent e)
+    {
+        e.camera = gameObject;
+    }
+
+    void GetCameraPosition(GetCameraPositionEvent e)
+    {
+        e.position = m_currentPosition;
     }
 }

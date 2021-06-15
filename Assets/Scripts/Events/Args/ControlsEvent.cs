@@ -33,7 +33,8 @@ class GetAttackEvent
     public bool Attack;
 }
 
-class GetAttackDirection
+class GetAimEvent
 {
-
+    public Vector2 controlerDirection;
+    public Vector2 mousePosition;
 }

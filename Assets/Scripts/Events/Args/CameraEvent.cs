@@ -5,6 +5,21 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
+class GetCameraEvent
+{
+    public Camera camera = null;
+}
+
+class GetCameraObjectEvent
+{
+    public GameObject camera = null;
+}
+
+class GetCameraPositionEvent
+{
+    public Vector2 position = Vector2.zero;
+}
+
 class MoveCameraEvent
 {
     public Vector2 pos;

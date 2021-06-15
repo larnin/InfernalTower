@@ -19,17 +19,27 @@ public class PlayerInputs : MonoBehaviour
     Vector2 m_direction = Vector2.zero;
     bool m_jump = false;
     bool m_dash = false;
-    
-    void Start()
+    bool m_attack = false;
+    Vector2 m_aimControler = Vector2.zero;
+    Vector2 m_mousePosition = Vector2.zero;
+
+    private void Awake()
     {
         m_subscriberList.Add(new Event<GetDirectionEvent>.LocalSubscriber(GetDirection, gameObject));
         m_subscriberList.Add(new Event<GetJumpEvent>.LocalSubscriber(GetJump, gameObject));
         m_subscriberList.Add(new Event<GetDashEvent>.LocalSubscriber(GetDash, gameObject));
+        m_subscriberList.Add(new Event<GetAttackEvent>.LocalSubscriber(GetAttack, gameObject));
+        m_subscriberList.Add(new Event<GetAimEvent>.LocalSubscriber(GetAim, gameObject));
         m_subscriberList.Subscribe();
 
         m_inputs = GetComponent<PlayerInput>();
         if (m_inputs)
             m_inputs.onActionTriggered += OnInput;
+    }
+
+    void Start()
+    {
+        m_mousePosition = transform.position;
     }
 
     private void OnDestroy()
@@ -93,6 +103,35 @@ public class PlayerInputs : MonoBehaviour
                 m_dash = false;
             }
         }
+        else if (e.action.name == AttackName)
+        {
+            if (e.phase == InputActionPhase.Started)
+            {
+                m_attack = true;
+                Event<StartAttackEvent>.Broadcast(new StartAttackEvent(), gameObject, true);
+            }
+            else if (e.phase == InputActionPhase.Canceled)
+            {
+                m_attack = false;
+                Event<EndAttackEvent>.Broadcast(new EndAttackEvent(), gameObject, true);
+            }
+        }
+        else if(e.action.name == TargetMouseName)
+        {
+            if (e.phase == InputActionPhase.Performed || e.phase == InputActionPhase.Started)
+                m_mousePosition = e.ReadValue<Vector2>();
+        }
+        else if(e.action.name == TargetGamepadName)
+        {
+            if (e.phase == InputActionPhase.Started || e.phase == InputActionPhase.Performed)
+            {
+                m_aimControler = e.ReadValue<Vector2>();
+            }
+            else if (e.phase == InputActionPhase.Disabled || e.phase == InputActionPhase.Canceled)
+            {
+                m_aimControler = Vector2.zero;
+            }
+        }
     }
 
     void GetDirection(GetDirectionEvent e)
@@ -108,5 +147,16 @@ public class PlayerInputs : MonoBehaviour
     void GetDash(GetDashEvent e)
     {
         e.dash = m_dash;
+    }
+
+    void GetAttack(GetAttackEvent e)
+    {
+        e.Attack = m_attack;
+    }
+
+    void GetAim(GetAimEvent e)
+    {
+        e.controlerDirection = m_aimControler;
+        e.mousePosition = m_mousePosition;
     }
 }
